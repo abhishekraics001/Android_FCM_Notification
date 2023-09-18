@@ -1,0 +1,286 @@
+MyFirebaseMessagingService extends FirebaseMessagingService
+
+import android.app.ActivityManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.ContentResolver;
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.media.AudioAttributes;
+import android.media.MediaPlayer;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import android.os.Build;
+import android.util.Log;
+import android.widget.RelativeLayout;
+import android.widget.RemoteViews;
+
+import androidx.annotation.NonNull;
+import androidx.core.app.NotificationCompat;
+
+import com.google.firebase.messaging.FirebaseMessagingService;
+import com.google.firebase.messaging.RemoteMessage;
+
+import java.io.IOException;
+import java.net.URL;
+import java.util.Iterator;
+import java.util.List;
+
+public class MyFirebaseMessagingService extends FirebaseMessagingService {
+
+    private static final String TAG = MyFirebaseMessagingService.class.getSimpleName();
+    MediaPlayer mp;
+
+
+    // Override onNewToken to get new token
+    @Override
+    public void onNewToken(@NonNull String token) {
+        Log.e(TAG, "Shalesh onNewToken: " + token);
+    }
+
+    //Override this method for observe the notification message
+    @Override
+    public void onMessageReceived(RemoteMessage remoteMessage) {
+
+        if (remoteMessage.getNotification() != null) {
+            String title = remoteMessage.getNotification().getTitle();
+            String body = remoteMessage.getNotification().getBody();
+            showNotification(title, body, false, "");
+        }
+
+        if (remoteMessage.getData().size() > 0) {
+            String title = remoteMessage.getData().get("title");
+            String body = remoteMessage.getData().get("body");
+            String notification_type = remoteMessage.getData().get("notification_type");
+            String visitor_image = remoteMessage.getData().get("visitor_image");
+            boolean isCustomeSoundPlay = false;
+            if(notification_type.equalsIgnoreCase("guard_calling")){
+                isCustomeSoundPlay = true;
+            }
+            showNotification(title, body, isCustomeSoundPlay, visitor_image);
+        }
+    }
+
+
+
+
+    private void showNotification(String title, String body, boolean isCustomeSoundPlay, String imageURL) {
+
+        //For the pending Intent: After tab/click on notification view app will redirect to that particular page
+        Intent i = new Intent(this, MainActivity.class);
+        i.putExtra("type", "fromFCM");
+        PendingIntent pi = PendingIntent.getActivity(this, 0, i, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+
+        Intent dismissIntent = new Intent(this, NotificationDismissReceiver.class);
+        dismissIntent.putExtra("notificationId", 0101);
+        PendingIntent pi2 = PendingIntent.getBroadcast(this, 0, dismissIntent, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+
+
+
+
+
+
+        // Inside your FirebaseMessagingService or notification handling code with custom layout
+        RemoteViews customLayout = new RemoteViews(getPackageName(), R.layout.custom_notification);
+
+
+
+        customLayout.setTextViewText(R.id.notification_title, title);
+        customLayout.setTextViewText(R.id.notification_text, body);
+        if(!imageURL.isEmpty()){
+            try {
+                URL url = new URL(imageURL);
+                Bitmap image = BitmapFactory.decodeStream(url.openConnection().getInputStream());
+                customLayout.setImageViewBitmap(R.id.notif_icon, image);
+            } catch(IOException e) {
+                System.out.println(e);
+            }
+        }
+
+        customLayout.setOnClickPendingIntent(R.id.rlLayout, pi);
+        //customLayout.setOnClickPendingIntent(R.id.rlLayout, pi2);
+
+
+
+        long[] vibrate = { 0, 100, 200, 300 };
+        Uri soundUri = Uri.parse("android.resource://" +getApplicationContext().getPackageName() +"/" +R.raw.sound);
+        AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .build();
+
+
+
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationChannel channel = null;
+
+        //Create Notification Channel
+
+        String channelID = "";
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if(isCustomeSoundPlay) {
+
+
+             if(isAppRunning()){
+                 channelID = "Resiconnect";
+                 channel = new NotificationChannel(channelID,"Resiconnect Channel", NotificationManager.IMPORTANCE_HIGH);
+                 channel.setSound(soundUri, audioAttributes);
+             }else{
+                 channelID = "Resiconnect Alert";
+                 channel = new NotificationChannel(channelID,"Resiconnect Channel", NotificationManager.IMPORTANCE_HIGH);
+             }
+
+            }else{
+                channelID = "Resiconnect Alert";
+                channel = new NotificationChannel(channelID,"Resiconnect Channel",NotificationManager.IMPORTANCE_HIGH );
+            }
+            notificationManager.createNotificationChannel(channel);
+        }
+        if(channelID.isEmpty()){
+            channelID = "Resiconnect";
+        }
+
+        //Create Notification Builder with View
+        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, channelID);
+       notificationBuilder.setSmallIcon(R.mipmap.ic_small_notification);
+
+
+        notificationBuilder.setContentTitle(title);  //Set Default Notification Title
+        notificationBuilder.setContentText(body); //Set Default Notification Body text
+        notificationBuilder.setCustomContentView(customLayout); // Set the custom layout
+        notificationBuilder.setContentIntent(pi);  //if you want handle default intent
+        //notificationBuilder.setContentIntent(pi2);
+        notificationBuilder.setAutoCancel(true);
+        notificationBuilder.setDefaults(Notification.FLAG_ONLY_ALERT_ONCE);
+        //notificationBuilder.setPriority(NotificationCompat.PRIORITY_HIGH) ;//Set the Priority
+        //notificationBuilder.setVibrate(new long[]{0, 250, 100, 250});
+        //notificationBuilder.setSound(soundUri);
+
+
+
+        //Create the notification
+        notificationManager.notify(0101, notificationBuilder.build());
+
+        /*
+        // Play custom sound sound with notification
+        if(mp == null){
+            //mp = MediaPlayer.create(this, R.raw.sound);
+        }else {
+            //mp.stop();
+            //mp.reset();
+        }
+        //mp.start();
+        */
+
+
+
+
+/*
+       Log.e("FCM Class", "Media player Instance:" +MediaPlayerManager.mediaPlayer +" isPlaying:"+MediaPlayerManager.isPlaying());
+       if (MediaPlayerManager.mediaPlayer == null) {
+           // MediaPlayerManager.initializeMediaPlayer(getApplicationContext(), R.raw.sound);
+
+        }
+        MediaPlayerManager.startPlayback();
+*/
+
+
+
+/*
+        if(MediaPlayerManager.isPlaying()) {
+            MediaPlayerManager.stopPlayback();
+            MediaPlayerManager.releaseMediaPlayer();
+        }*/
+
+
+
+    }
+
+
+
+
+
+
+/*
+    private void showNotification(String title, String body) {
+
+        Intent i = new Intent(this, MainActivity.class);
+        PendingIntent pi = PendingIntent.getActivity(this, 0, i, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    "Resiconnect",
+                    "Resiconnect Channel",
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            notificationManager.createNotificationChannel(channel);
+        }
+
+
+
+        Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+
+
+        // Inside your FirebaseMessagingService or notification handling code
+        RemoteViews customLayout = new RemoteViews(getPackageName(), R.layout.custom_notification);
+
+        customLayout.setTextViewText(R.id.notification_title, title);
+        customLayout.setTextViewText(R.id.notification_text, body);
+        customLayout.setOnClickPendingIntent(R.id.rlLayout, pi);
+
+
+
+
+        NotificationCompat.Builder notificationBuilder =
+                new NotificationCompat.Builder(this, "Resiconnect")
+                        .setSmallIcon(R.drawable.ic_launcher)
+                        //.setContentTitle(title)
+                        //.setContentText(body)
+                        .setCustomContentView(customLayout) // Set the custom layout
+                        //.setContentIntent(pi)
+                        .setAutoCancel(true)
+                        .setDefaults(Notification.FLAG_ONLY_ALERT_ONCE)
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setSound (Uri.parse("android.resource://com.packagename.org/raw/sound"));
+
+                        //.setSound();
+
+        MediaPlayer mp= MediaPlayer.create(this, R.raw.sound);
+        mp.start();
+
+
+        notificationManager.notify(0, notificationBuilder.build());
+    }
+
+    private Uri getCustomSoundUri() {
+         Uri  url = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + getPackageName() + "/raw/sound");
+         return  url;
+    }*/
+
+
+
+
+    private boolean isAppRunning() {
+        ActivityManager m = (ActivityManager) this.getSystemService( ACTIVITY_SERVICE );
+        List<ActivityManager.RunningTaskInfo> runningTaskInfoList =  m.getRunningTasks(10);
+        Iterator<ActivityManager.RunningTaskInfo> itr = runningTaskInfoList.iterator();
+        int n=0;
+        while(itr.hasNext()){
+            n++;
+            itr.next();
+        }
+        if(n==1){ // App is killed
+            return false;
+        }
+
+        return true; // App is in background or foreground
+    }
+}

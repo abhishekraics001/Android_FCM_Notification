@@ -284,3 +284,28 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         return true; // App is in background or foreground
     }
 }
+
+
+
+
+
+/*
+    POST Man Collection to send / test the notifiction
+/*
+Method: POST 
+URL: https://fcm.googleapis.com/fcm/send
+Header key: Authorization
+Header Value: key=AAAAz9Qrn08:APA91bGLfb5uFmPZneLq1fx_IiLrz8d6pGSfHRQt8VZ-B6LX_WIEeGiLVDgKQnBlHu3lqYD_ERZbIDgZ0rt2btPih-dwFMJJz-eKC_sHoc0MSFNJ6p0ENAfKJwXj7s7mAxA21ZA_zo0H
+Body : JSON
+{
+ "to" : "fqMmIXy_QWCRnHqQmhNgD-:APA91bEsYXZDEryIiWrwp_rLFIxW3XPSHw6Y0jtkoylP_xIjOoKpsilUHR2B27Z_URHz1YbuHluwCymA2sf7QJt8mNF7q0bBPPxqLiXeurdvBqHnKe9_EaJTAIEvQZOhUxJydT5L1OzG",
+      "data":{
+        "notification_type":"guard_calling",
+        "visitor_name":"Visitor 1",
+        "visitor_id":10,
+        "visitor_image":"",
+        "priority": "high",
+        "body" : "Guard Calling",
+        "title": " Visitor 8"
+      }
+}
